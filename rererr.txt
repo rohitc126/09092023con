@@ -1,0 +1,193 @@
+ALTER PROC [AGG].[USP_UPDATE_CONCRETE_SPECIMENS_DTL]
+@ERRORSTR					VARCHAR(200) OUTPUT,
+@Test_Dtl_ID                NUMERIC(18, 0),
+@Test_ID					NUMERIC(18, 0), 
+@Client				        VARCHAR(50),
+@Id_Mark				    NUMERIC(18, 0), 
+@Dimension_L		        NUMERIC(18, 0),  
+@Dimension_B                NUMERIC(18, 0), 
+@Dimension_H                NUMERIC(18, 0), 
+@Cast_Date                  datetime,
+@Test_Age                   NUMERIC(18, 0), 
+@Grade_ID			        NUMERIC(18, 0),
+@Weight                     NUMERIC(18, 0),
+@Crushing_Load              NUMERIC(18, 0),
+@Compressive_strength        NUMERIC(18, 0),
+@Avg_Compressive            NUMERIC(18, 0),
+@Remarks                    VARCHAR(200)
+
+AS
+BEGIN
+	SET NOCOUNT ON;
+	SET @ERRORSTR='' 
+ 
+	UPDATE [AGG].[Tbl_Concrete_Specimens_Dtl]
+			SET	 Client = @Client,
+				 Id_Mark = @Id_Mark,
+				 Dimension_L = @Dimension_L, 
+				 Dimension_B = @Dimension_B, 
+				 Dimension_H= @Dimension_H, 
+				 Cast_Date = @Cast_Date, 
+				 Test_Age= @Test_Age,
+				 Grade_ID = @Grade_ID, 
+				 Weight =@Weight,
+				 Crushing_Load =  @Crushing_Load, 
+				 Compressive_strength = @Compressive_strength,
+				 Avg_Compressive = @Avg_Compressive, 
+				 Remarks = @Remarks
+
+     where  Test_Dtl_ID = @Test_Dtl_ID
+
+	 --IF @@ROWCOUNT = 0
+	 -- BEGIN
+  --      -- If no rows were updated, insert a new record
+  --      INSERT INTO [AGG].[Tbl_Concrete_Specimens_Dtl]
+  --      (
+  --          Test_Dtl_ID,
+  --          Test_ID,
+  --          Client,
+  --          Id_Mark,
+  --          Dimension_L,
+  --          Dimension_B,
+  --          Dimension_H,
+  --          Cast_Date,
+  --          Test_Age,
+  --          Grade_ID,
+  --          Weight,
+  --          Crushing_Load,
+  --          Compressive_strength,
+  --          Avg_Compressive,
+  --          Remarks
+  --      )
+		-- VALUES
+  --      (
+  --          @Test_Dtl_ID,
+  --          @Test_ID,
+  --          @Client,
+  --          @Id_Mark,
+  --          @Dimension_L,
+  --          @Dimension_B,
+  --          @Dimension_H,
+  --          @Cast_Date,
+  --          @Test_Age,
+  --          @Grade_ID,
+  --          @Weight,
+  --          @Crushing_Load,
+  --          @Compressive_strength,
+  --          @Avg_Compressive,
+  --          @Remarks
+  --      );
+		--END;
+
+
+		IF @@ERROR <> 0
+		BEGIN
+			SET @ERRORSTR = 'DATA BASE ERROR OCCUR FOR TABLE CONCRETE SPECIMENS !'
+			SET	@Test_Dtl_ID = -1
+			RETURN
+		END
+ 
+END
+
+
+
+
+
+
+ALTER PROC [AGG].[USP_CONCRETE_SPECIMENS_VIEW]
+@Test_ID           NUMERIC(18,0) OUTPUT
+
+
+AS BEGIN
+
+SELECT D.Test_Dtl_ID,A.Test_No, A.Dry_Bulb,A.Wet_Bulb,A.Date_Test,A.IS_FILE_UPLOAD,A.FILE_PATH,D.Client,D.Id_Mark ,
+D.Dimension_L,D.Dimension_B,D.Dimension_H,D.Cast_Date,D.Test_Age,D.Grade_ID,D.Weight,D.Crushing_Load,D.Compressive_strength,
+D.Avg_Compressive,D.Remarks,A.Tested_By,A.Qc_Incharge,A.Added_By,ROW_NUMBER() OVER(PARTITION BY A.Test_No ORDER BY D.Test_Dtl_ID ASC) AS RNK
+
+ FROM [AGG].[Tbl_Concrete_Specimens_HDR] AS A WITH(NOLOCK) 
+
+INNER JOIN  [AGG].[Tbl_Concrete_Specimens_Dtl] as D  WITH(NOLOCK) ON D.Test_ID =A.Test_ID
+
+
+WHERE  D.Test_ID =@Test_ID
+
+END 
+
+
+
+
+
+
+ALTER PROC [AGG].[USP_SELECT_CONCRETE_SPECIMENS]
+@GRADE_ID					INT  = NULL, 
+@FROM_DT					DATETIME,
+@TO_DT						DATETIME 
+
+AS BEGIN
+
+	SELECT A.Test_ID, A.Test_No, A.Dry_Bulb,A.Wet_Bulb,A.Date_Test,B.GRADE_ID,C.Grade_Name,
+	ISNULL(A.IS_FILE_UPLOAD,0) AS SAMPLE_COUNT, A.FILE_PATH
+	--COUNT(B.Test_Dtl_ID) AS SAMPLE_COUNT 
+
+	FROM [AGG].[Tbl_Concrete_Specimens_HDR] AS A WITH(NOLOCK)
+
+	INNER JOIN [AGG].[Tbl_Concrete_Specimens_Dtl] AS B ON A.Test_ID = B.Test_Dtl_ID
+    INNER JOIN AGG.Tbl_Grade_Mst AS C WITH (NOLOCK) ON B.GRADE_ID = C.GRADE_ID 
+	WHERE(B.GRADE_ID = @GRADE_ID OR ISNULL(@GRADE_ID,0) = 0)   
+	 AND A.Date_Test  BETWEEN  @FROM_DT  AND @TO_DT AND A.STATUS = 1
+	
+	--GROUP BY A.Test_ID, A.Test_No ,A.Dry_Bulb,A.Wet_Bulb,A.Date_Test,A.IS_FILE_UPLOAD,A.FILE_PATH
+
+END 
+
+
+
+
+
+
+
+ 
+
+
+
+
+
+ALTER PROC [AGG].[USP_INSERT_CONCRETE_SPECIMENS_EDIT]
+@Test_ID           NUMERIC(18,0) OUTPUT
+
+
+AS BEGIN
+
+SELECT A.Test_ID,D.Test_Dtl_ID,A.Test_No,A.Dry_Bulb,A.Wet_Bulb,A.Date_Test,
+D.Client,D.Id_Mark,D.Dimension_L,D.Dimension_B,D.Dimension_H,
+D.Cast_Date,D.Test_Age,D.Weight,D.Grade_ID,B.Grade_Name,D.Crushing_Load,D.Compressive_strength,D.Avg_Compressive,D.Remarks,emp1.Employee_Name AS Tested_By ,emp2.Employee_Name AS Qc_Incharge,emp3.Employee_Name AS Added_By,
+ISNULL(A.IS_FILE_UPLOAD,0) AS IS_FILE_UPLOAD, 
+	A.FILE_PATH, 
+	ISNULL(A.IS_LOCKED,0) IS_LOCKED
+
+
+FROM [AGG].[Tbl_Concrete_Specimens_HDR] AS A WITH(NOLOCK) 
+
+INNER JOIN [HRM].[dbo].[vw_Employee_Mst] AS emp1 WITH(NOLOCK) on emp1.Employee_Code = A.Tested_By
+INNER JOIN [HRM].[dbo].[vw_Employee_Mst] AS emp2 WITH(NOLOCK) on emp2.Employee_Code = A.Qc_Incharge
+INNER JOIN [HRM].[dbo].[vw_Employee_Mst] AS emp3 WITH(NOLOCK) on emp3.Employee_Code = A.Added_By
+INNER JOIN [AGG].[Tbl_Concrete_Specimens_Dtl] AS D ON D.Test_ID =A.Test_ID
+INNER JOIN AGG.Tbl_Grade_Mst AS B WITH (NOLOCK) ON D.GRADE_ID = B.GRADE_ID 
+
+  WHERE A.STATUS=1 AND D.Test_ID =@Test_ID
+
+END 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
